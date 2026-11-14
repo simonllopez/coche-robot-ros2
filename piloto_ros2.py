@@ -40,10 +40,10 @@ PASO = 0.05             # s entre /scan (20 Hz)
 
 # Parámetros de ROS 2: nombre -> (valor, mínimo, máximo, explicación)
 PARAMETROS = {
-    "vel_max": (5.0, 0.5, 5.0, "m/s en recta"),
-    "acel_lateral": (7.0, 1.0, 10.0, "m/s² en curva: más alto = entra más rápido (el agarre da ~9)"),
-    "frenada": (6.0, 1.0, 10.0, "m/s² de frenada que da por buena para pararse antes de un obstáculo"),
-    "margen": (0.12, 0.0, 0.4, "m de más a cada lado al ensanchar las barreras"),
+    "vel_max": (2.5, 0.5, 5.0, "m/s en recta (conservador; el coche llega a 5)"),
+    "acel_lateral": (3.5, 1.0, 10.0, "m/s² en curva: más alto = entra más rápido (el agarre da ~9)"),
+    "frenada": (3.0, 1.0, 10.0, "m/s² de frenada que da por buena para pararse antes de un obstáculo"),
+    "margen": (0.15, 0.0, 0.4, "m de más a cada lado al ensanchar las barreras"),
     "campo": (90.0, 45.0, 135.0, "grados: mira hacia delante ±campo"),
     "salto": (0.25, 0.05, 1.0, "m: diferencia entre rayos vecinos que cuenta como borde de barrera"),
     "ganancia_giro": (1.0, 0.3, 2.0, "multiplica el giro hacia el hueco"),

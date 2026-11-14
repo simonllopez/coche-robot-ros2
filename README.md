@@ -97,7 +97,7 @@ La web tiene dos modos (menú **Esc** → *Sincronía en ROS 2*):
 |---|---|
 | `instalar.sh` | descarga este repositorio y arranca `conectar.sh` |
 | `conectar.sh` | rosbridge, republicador de la cámara, `robot_state_publisher` y el piloto (con tu ROS 2 o con Docker) |
-| `piloto_ros2.py` | piloto con LiDAR y odometría ("extensor de discontinuidades"), ~26 s por vuelta |
+| `piloto_ros2.py` | piloto con LiDAR y odometría ("extensor de discontinuidades"). Conservador: 2,5 m/s y curvas suaves, ~44 s por vuelta sin choques. Más rápido: `ros2 param set /piloto_ros2 vel_max 5.0` (y `acel_lateral 7.0`, ~26 s) |
 | `ejemplo_piloto.py` | piloto mínimo: la plantilla para empezar el tuyo |
 | `rviz/` | modelo del coche (`coche.urdf`) y vistas de RViz: `coche.rviz` y `coche_mapa.rviz` (con el mapa) |
 | `slam/` | `slam.yaml` (slam_toolbox ajustado al karting) y `scan_slam.py` (el `/scan` de −π a π) |

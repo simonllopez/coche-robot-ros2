@@ -29,6 +29,21 @@ PUERTO="${ROSBRIDGE_PUERTO:-9090}"
 DIRECCION="${ROSBRIDGE_DIRECCION:-127.0.0.1}"
 IMAGEN="coche-robot-ros2:jazzy"
 
+# ---------- ¿El puerto está libre? (p. ej. un rosbridge que se quedó colgado de otra vez) ----------
+if [ ! -f /.dockerenv ] && ss -ltnH "sport = :$PUERTO" 2> /dev/null | grep -q .; then
+  OCUPA=$(ss -ltnpH "sport = :$PUERTO" 2> /dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)
+  QUE=$([ -n "$OCUPA" ] && ps -o args= -p "$OCUPA" | cut -c1-70)
+  echo "El puerto $PUERTO ya está ocupado${OCUPA:+ por el proceso $OCUPA ($QUE)}."
+  if [[ "$QUE" == *rosbridge* ]] && [ -t 0 ]; then
+    read -r -p "Parece un rosbridge que se quedó abierto. ¿Lo cierro? [S/n] " r
+    [[ "$r" =~ ^[nN] ]] && exit 1
+    kill -KILL "$OCUPA"; sleep 1
+  else
+    echo "Ciérralo${OCUPA:+ (kill $OCUPA)} o usa otro puerto: ROSBRIDGE_PUERTO=9091 ./conectar.sh"
+    exit 1
+  fi
+fi
+
 # ---------- ¿ROS 2 en este PC? ----------
 if [ "$USAR_DOCKER" = 0 ] && [ -z "$ROS_DISTRO" ]; then
   for d in /opt/ros/*/setup.bash; do
@@ -98,7 +113,22 @@ if [ ${#FALTAN[@]} -gt 0 ]; then
   fi
 fi
 
-trap 'trap - EXIT; kill 0' EXIT INT TERM      # al salir se cierra todo
+# Al salir (Ctrl+C, cerrar la terminal o fallo) se cierra todo. rosbridge a veces no hace caso a Ctrl+C
+# y se quedaría ocupando el puerto, así que lo que siga vivo a los 3 s se cierra a la fuerza.
+cerrar() {
+  trap '' INT TERM HUP                        # este script no se interrumpe mientras recoge
+  trap - EXIT
+  echo; echo "Cerrando…"
+  kill -INT 0 2> /dev/null
+  local grupo; grupo=$(ps -o pgid= $$ | tr -d ' ')
+  for _ in $(seq 30); do
+    pgrep -g "$grupo" -x 'python3|ros2|republish|robot_state_pub' > /dev/null || break
+    sleep 0.1
+  done
+  rm -f "$PARAMS_URDF"
+  kill -KILL 0 2> /dev/null
+}
+trap cerrar EXIT INT TERM HUP
 
 echo "ROS 2 $ROS_DISTRO  ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}  piloto: ${PILOTO:-ninguno (lanza tu nodo en otra terminal)}"
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml address:="$DIRECCION" port:="$PUERTO" &

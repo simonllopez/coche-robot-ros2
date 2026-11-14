@@ -1,0 +1,9 @@
+# Mapa exacto del karting (mapeado/mapa_exacto.py: rayos de LiDAR perfectos desde la línea central).
+# El origen del marco "map" es la salida del coche, mirando hacia +x.
+image: mapa.png
+mode: trinary
+resolution: 0.025
+origin: [-8.6069, -14.6793, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25

@@ -1,0 +1,134 @@
+# Lo que cambia de Nav2 para este coche. El resto sale de la configuración por defecto de tu distro
+# (nav2_bringup/params/nav2_params.yaml): nav/combinar.py junta las dos al arrancar ./conectar.sh --nav.
+#
+# El coche: dirección Ackermann (no gira sobre sí mismo), radio de giro mínimo ~0,48 m (batalla 0,26 m y
+# 0,5 rad de dirección), 39 x 24 cm, base_link en el centro del chasis. La pista mide 80 cm de ancho.
+
+amcl:
+  ros__parameters:
+    base_frame_id: base_link
+    scan_topic: /scan
+    laser_max_range: 4.0
+    laser_likelihood_max_dist: 0.5
+    max_particles: 1000
+    min_particles: 200
+    update_min_d: 0.1
+    update_min_a: 0.1
+    alpha1: 0.1
+    alpha2: 0.1
+    alpha3: 0.1
+    alpha4: 0.1
+    set_initial_pose: true             # el coche empieza en la salida, que es el origen del mapa
+    initial_pose: {x: 0.0, y: 0.0, z: 0.0, yaw: 0.0}
+
+controller_server:
+  ros__parameters:
+    enable_stamped_cmd_vel: false      # la web escucha geometry_msgs/Twist
+    progress_checker:
+      movement_time_allowance: 15.0
+    general_goal_checker:
+      xy_goal_tolerance: 0.3
+      yaw_goal_tolerance: 0.8          # un coche no puede corregir la orientación parado
+    # Pure Pursuit regulado: sigue la ruta como un coche, sin girar sobre sí mismo ni dar marcha atrás
+    FollowPath:
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      desired_linear_vel: 0.8
+      lookahead_dist: 0.6
+      min_lookahead_dist: 0.4
+      max_lookahead_dist: 1.0
+      lookahead_time: 1.0
+      use_velocity_scaled_lookahead_dist: true
+      min_approach_linear_velocity: 0.1
+      approach_velocity_scaling_dist: 0.6
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+      use_regulated_linear_velocity_scaling: true
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.25
+      use_cost_regulated_linear_velocity_scaling: false
+      use_rotate_to_heading: false
+      allow_reversing: false
+      max_angular_accel: 3.2
+      max_robot_pose_search_dist: 10.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      width: 4
+      height: 4
+      resolution: 0.025
+      footprint: "[[0.22, 0.12], [0.22, -0.12], [-0.17, -0.12], [-0.17, 0.12]]"
+      inflation_layer:
+        inflation_radius: 0.35
+        cost_scaling_factor: 10.0
+      voxel_layer:
+        scan:
+          topic: /scan
+          raytrace_max_range: 4.0
+          obstacle_max_range: 3.5
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      resolution: 0.025
+      footprint: "[[0.22, 0.12], [0.22, -0.12], [-0.17, -0.12], [-0.17, 0.12]]"
+      obstacle_layer:
+        scan:
+          topic: /scan
+          raytrace_max_range: 4.0
+          obstacle_max_range: 3.5
+      inflation_layer:
+        inflation_radius: 0.35
+        cost_scaling_factor: 10.0
+
+planner_server:
+  ros__parameters:
+    # Hybrid-A* con curvas de coche (Dubins: solo hacia delante) y el radio de giro de verdad
+    GridBased:
+      plugin: "nav2_smac_planner::SmacPlannerHybrid"
+      downsample_costmap: false
+      tolerance: 0.25
+      allow_unknown: false             # nada de atajos por fuera de la pista
+      max_iterations: 1000000
+      max_planning_time: 3.0
+      motion_model_for_search: "DUBIN"
+      angle_quantization_bins: 72
+      analytic_expansion_ratio: 3.5
+      analytic_expansion_max_length: 3.0
+      minimum_turning_radius: 0.55
+      reverse_penalty: 2.0
+      change_penalty: 0.0
+      non_straight_penalty: 1.2
+      cost_penalty: 2.0
+      retrospective_penalty: 0.015
+      lookup_table_size: 20.0
+      cache_obstacle_heuristic: false
+      smooth_path: true
+
+behavior_server:
+  ros__parameters:
+    enable_stamped_cmd_vel: false
+
+velocity_smoother:
+  ros__parameters:
+    enable_stamped_cmd_vel: false
+    max_velocity: [1.0, 0.0, 2.5]
+    min_velocity: [-0.3, 0.0, -2.5]
+    max_accel: [2.0, 0.0, 4.0]
+    max_decel: [-3.0, 0.0, -4.0]
+
+collision_monitor:
+  ros__parameters:
+    enable_stamped_cmd_vel: false
+    enabled: false                     # en una pista de 80 cm frenaría a cada rato: deja pasar las órdenes
+    base_frame_id: base_link
+    scan:
+      topic: /scan
+
+docking_server:
+  ros__parameters:
+    enable_stamped_cmd_vel: false
+
+following_server:                      # (Lyrical y posteriores) mismo motivo: /cmd_vel sin sello de tiempo
+  ros__parameters:
+    enable_stamped_cmd_vel: false

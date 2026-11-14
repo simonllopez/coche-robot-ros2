@@ -39,6 +39,7 @@ cd ~/coche-robot-ros2
 ./conectar.sh --slam             # además, el mapa con slam_toolbox (topic /map)
 ./conectar.sh --rviz             # además, RViz (con --slam, también el mapa)
 ./conectar.sh --slam --rviz piloto_ros2.py   # todo junto: el piloto da vueltas y ves cómo se hace el mapa
+./conectar.sh --nav --rviz       # navegar con Nav2 sobre el mapa del circuito (destinos con 2D Goal Pose)
 ./conectar.sh --docker           # usar Docker aunque tengas ROS 2
 ROS_DOMAIN_ID=43 ./conectar.sh   # separado de otras cosas de ROS que tengas abiertas
 ```
@@ -72,11 +73,37 @@ RViz con el mapa: `rviz/coche_mapa.rviz` (lo abre `--rviz` si va con `--slam`).
 Con Docker, `--rviz` abre la ventana de RViz desde el contenedor en tu escritorio (X11, o XWayland en Wayland;
 hace falta `xauth`).
 
+## Navegar con Nav2
+
+```bash
+./conectar.sh --nav --rviz
+```
+
+Si faltan, ofrece instalar `ros-$ROS_DISTRO-navigation2` y `ros-$ROS_DISTRO-nav2-bringup` (no va en Docker).
+Probado en Lyrical y en Jazzy. Después de conectar la web, Nav2 tarda unos 20 s en estar listo. En RViz,
+**2D Goal Pose** para mandar el coche a un sitio; o desde la terminal:
+
+```bash
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 2.86, y: -12.84}, orientation: {z: 0.997, w: 0.077}}}}"
+```
+
+| Archivo | Qué es |
+|---|---|
+| `nav/mapa.yaml`, `mapa.png` | mapa exacto del circuito (2,5 cm), hecho con rayos de LiDAR perfectos desde la geometría del simulador: sin deriva ni costuras. El origen es la salida |
+| `nav/coche.yaml` | solo lo que cambia de Nav2 para este coche; el resto es la configuración por defecto de tu distro |
+| `nav/combinar.py` | junta las dos al arrancar, y quita del árbol de comportamiento la recuperación *Spin* (un coche no gira sobre sí mismo) |
+| `nav/recolocar.py` | al reiniciar la vuelta o recargar la web, coloca el coche otra vez en la salida para AMCL |
+
+Lo que cambia para el coche: dirección Ackermann, así que planificador **Smac Hybrid-A\*** con curvas de coche
+(radio mínimo 0,55 m, solo hacia delante) y controlador **Regulated Pure Pursuit** sin girar sobre sí mismo
+(0,8 m/s); huella de 39 × 24 cm; `base_link`; `/cmd_vel` sin sello de tiempo (`enable_stamped_cmd_vel: false`),
+y el monitor de colisiones apagado (en una pista de 80 cm frenaría a cada rato). Usa la web en modo **Tiempo real**.
+
 ## Qué publica y qué espera la web
 
 | Tema | Tipo | |
 |---|---|---|
-| `/clock` | `rosgraph_msgs/Clock` | tiempo simulado (usa `use_sim_time`) |
+| `/clock` | `rosgraph_msgs/Clock` | tiempo simulado (usa `use_sim_time`); nunca vuelve atrás, ni al reiniciar la vuelta ni al recargar la web |
 | `/odom` | `nav_msgs/Odometry` | velocidad y giro con ruido de semilla fija; la posición deriva |
 | `/tf` | `tf2_msgs/TFMessage` | `odom → base_link` |
 | `/scan` | `sensor_msgs/LaserScan` | LiDAR a 20 Hz: la señal de "te toca" |
@@ -101,4 +128,5 @@ La web tiene dos modos (menú **Esc** → *Sincronía en ROS 2*):
 | `ejemplo_piloto.py` | piloto mínimo: la plantilla para empezar el tuyo |
 | `rviz/` | modelo del coche (`coche.urdf`) y vistas de RViz: `coche.rviz` y `coche_mapa.rviz` (con el mapa) |
 | `slam/` | `slam.yaml` (slam_toolbox ajustado al karting) y `scan_slam.py` (el `/scan` de −π a π) |
+| `nav/` | Nav2: mapa exacto del circuito, ajustes del coche y recolocación al reiniciar (ver arriba) |
 | `Dockerfile` | ROS 2 Jazzy con rosbridge e image_transport (lo usa `conectar.sh`) |

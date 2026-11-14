@@ -6,6 +6,7 @@
 #   ./conectar.sh piloto_ros2.py     además, lanza un piloto (el de ejemplo o el tuyo)
 #   ./conectar.sh --slam             además, hace el mapa con slam_toolbox (topic /map)
 #   ./conectar.sh --rviz             además, abre RViz (con el mapa si va con --slam)
+#   ./conectar.sh --nav --rviz       navegar con Nav2 sobre el mapa del circuito (nav/): destinos con RViz
 #   ./conectar.sh --docker           todo dentro de Docker (no hace falta tener ROS 2)
 #   ROS_DOMAIN_ID=43 ./conectar.sh   separado de otras cosas de ROS que tengas abiertas
 #
@@ -19,17 +20,21 @@ USAR_DOCKER=0
 PILOTO=""
 SLAM=0
 RVIZ=0
+NAV=0
 for a in "$@"; do
   case "$a" in
     --docker) USAR_DOCKER=1 ;;
     --sin-piloto) PILOTO="" ;;            # (lo que hace ya sin argumentos; se mantiene por compatibilidad)
     --slam) SLAM=1 ;;
     --rviz) RVIZ=1 ;;
-    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    --nav) NAV=1 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) PILOTO="$a" ;;
   esac
 done
 [ -n "$PILOTO" ] && [ ! -f "$PILOTO" ] && { echo "No encuentro el piloto: $PILOTO"; exit 1; }
+[ "$NAV" = 1 ] && [ "$SLAM" = 1 ] && { echo "--nav usa el mapa ya hecho (nav/mapa.yaml): no se junta con --slam."; exit 1; }
+[ "$NAV" = 1 ] && [ -n "$PILOTO" ] && { echo "Con --nav conduce Nav2: no lances también un piloto."; exit 1; }
 
 PUERTO="${ROSBRIDGE_PUERTO:-9090}"
 DIRECCION="${ROSBRIDGE_DIRECCION:-127.0.0.1}"
@@ -91,6 +96,10 @@ EOF
 fi
 
 # ---------- Con Docker ----------
+if [ "$USAR_DOCKER" = 1 ] && [ "$NAV" = 1 ]; then
+  echo "--nav necesita ROS 2 instalado en tu PC (la imagen de Docker no lleva Nav2)."
+  exit 1
+fi
 if [ "$USAR_DOCKER" = 1 ]; then
   if ! docker info > /dev/null 2>&1; then
     echo "Docker está instalado pero no puedo usarlo. Prueba:"
@@ -138,6 +147,10 @@ ros2 pkg prefix compressed_image_transport > /dev/null 2>&1 || FALTAN+=("ros-$RO
 python3 -c 'import numpy' 2> /dev/null || FALTAN+=(python3-numpy)
 [ "$SLAM" = 1 ] && { ros2 pkg prefix slam_toolbox > /dev/null 2>&1 || FALTAN+=("ros-$ROS_DISTRO-slam-toolbox"); }
 [ "$RVIZ" = 1 ] && { ros2 pkg prefix rviz2 > /dev/null 2>&1 || FALTAN+=("ros-$ROS_DISTRO-rviz2"); }
+if [ "$NAV" = 1 ]; then
+  ros2 pkg prefix nav2_bringup > /dev/null 2>&1 || FALTAN+=("ros-$ROS_DISTRO-navigation2" "ros-$ROS_DISTRO-nav2-bringup")
+  python3 -c 'import yaml' 2> /dev/null || FALTAN+=(python3-yaml)
+fi
 if [ ${#FALTAN[@]} -gt 0 ]; then
   echo "Faltan paquetes: ${FALTAN[*]}"
   echo "  sudo apt install ${FALTAN[*]}"
@@ -158,10 +171,11 @@ cerrar() {
   kill -INT 0 2> /dev/null
   local grupo; grupo=$(ps -o pgid= $$ | tr -d ' ')
   for _ in $(seq 30); do
-    pgrep -g "$grupo" -x 'python3|ros2|republish|robot_state_pub|async_slam_tool|rviz2' > /dev/null || break
+    # ¿queda algo de ROS? (todo lo del grupo menos este script, sus subshells y las órdenes de esta comprobación)
+    [ -z "$(ps -o comm= -g "$grupo" | grep -vxE 'conectar.sh|bash|ps|grep|sleep|seq')" ] && break
     sleep 0.1
   done
-  rm -f "$PARAMS_URDF"
+  rm -f "$PARAMS_URDF" "${PARAMS_NAV:-}" "${ARBOL_NAV:-}"
   kill -KILL 0 2> /dev/null
 }
 trap cerrar EXIT INT TERM HUP
@@ -180,8 +194,19 @@ if [ "$SLAM" = 1 ]; then
   python3 slam/scan_slam.py &
   ros2 launch slam_toolbox online_async_launch.py use_sim_time:=true slam_params_file:="$PWD/slam/slam.yaml" &
 fi
+if [ "$NAV" = 1 ]; then
+  # Nav2: la configuración de tu distro + lo que cambia para este coche (nav/coche.yaml)
+  NAV2=$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup
+  PARAMS_NAV=$(mktemp --suffix=.yaml); ARBOL_NAV=$(mktemp --suffix=.xml)
+  python3 nav/combinar.py "$NAV2/params/nav2_params.yaml" nav/coche.yaml "$PARAMS_NAV" \
+    "$(ros2 pkg prefix nav2_bt_navigator)/share/nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml" "$ARBOL_NAV"
+  ros2 launch nav2_bringup bringup_launch.py map:="$PWD/nav/mapa.yaml" params_file:="$PARAMS_NAV" \
+    use_sim_time:=True autostart:=True > nav2.log 2>&1 &
+  python3 nav/recolocar.py &             # al reiniciar la simulación, el coche vuelve a la salida también para AMCL
+fi
 if [ "$RVIZ" = 1 ]; then
   VISTA=rviz/coche.rviz; [ "$SLAM" = 1 ] && VISTA=rviz/coche_mapa.rviz
+  [ "$NAV" = 1 ] && VISTA="$NAV2/rviz/nav2_default_view.rviz"
   rviz2 -d "$VISTA" --ros-args -p use_sim_time:=true > /dev/null 2>&1 &
 fi
 sleep 2
@@ -211,6 +236,14 @@ EOF
 ${T}▸ Mapa${R} ${GR}(slam_toolbox, topic /map)${R}. Guardarlo:
     ${CMD}${EN}ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: mapa}}"${FIN}${R}
 EOF
+if [ "$NAV" = 1 ]; then
+  cat <<EOF
+${T}▸ Navegación (Nav2)${R} ${GR}con el mapa nav/mapa.yaml; registro en nav2.log${R}
+    El coche empieza localizado en la salida. Destino: en RViz, ${B}2D Goal Pose${R}; o en otra terminal:
+    ${CMD}${EN}ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 3.0, y: 0.0}, orientation: {w: 1.0}}}}"${FIN}${R}
+    ${GR}Al reiniciar la vuelta o recargar la web se recoloca solo en la salida. Si se pierde: 2D Pose Estimate en RViz.${R}
+EOF
+fi
 if [ "$RVIZ" = 1 ]; then
   echo "${T}▸ RViz${R} abierto ${GR}($VISTA)${R}"
 elif [ ! -f /.dockerenv ]; then

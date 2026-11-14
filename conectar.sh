@@ -38,8 +38,11 @@ IMAGEN="coche-robot-ros2:jazzy"
 # ---------- ¿El puerto está libre? (p. ej. un rosbridge que se quedó colgado de otra vez) ----------
 if [ ! -f /.dockerenv ] && ss -ltnH "sport = :$PUERTO" 2> /dev/null | grep -q .; then
   OCUPA=$(ss -ltnpH "sport = :$PUERTO" 2> /dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)
-  QUE=$([ -n "$OCUPA" ] && ps -o args= -p "$OCUPA" | cut -c1-70)
-  PADRE=$([ -n "$OCUPA" ] && ps -o comm= -p "$(ps -o ppid= -p "$OCUPA")" 2> /dev/null)
+  QUE=""; PADRE=""
+  if [ -n "$OCUPA" ]; then
+    QUE=$(ps -o args= -p "$OCUPA" | cut -c1-70)
+    PADRE=$(ps -o comm= -p "$(ps -o ppid= -p "$OCUPA" | tr -d ' ')" 2> /dev/null || true)
+  fi
   if [[ "$QUE" == *rosbridge* && "$PADRE" == ros2 ]] || docker ps -q -f name='^coche-robot-ros2$' 2> /dev/null | grep -q .; then
     # Su "ros2 launch" sigue vivo: es otro conectar.sh en marcha, no uno colgado. No se toca.
     echo "Ya está en marcha en otra terminal (rosbridge en ws://127.0.0.1:$PUERTO): no hace falta arrancarlo otra vez."

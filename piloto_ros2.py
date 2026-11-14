@@ -154,7 +154,7 @@ class Piloto(Node):
                 self.atascado = 0
                 self.marcha_atras = 12                   # 0,6 s hacia atrás
                 self.giro_rescate = -math.copysign(GIRO_MAX, giro if abs(giro) > 0.05 else (lado_izq - lado_der))
-                self.get_logger().warn("Atascado: marcha atrás")
+                self.get_logger().warning("Atascado: marcha atrás")
                 return -0.6, self.giro_rescate
 
         return v, giro

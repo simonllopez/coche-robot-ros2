@@ -14,6 +14,8 @@ wget -qO- https://raw.githubusercontent.com/simonllopez/coche-robot-ros2/main/in
 
 Lo descarga en `~/coche-robot-ros2` y ejecuta `conectar.sh`. Por defecto **no conduce nadie**: arranca rosbridge,
 el republicador de la cámara y el modelo para RViz, y el coche espera a que tu nodo publique en `/cmd_vel`.
+Para probarlo con el teclado: `ros2 run teleop_twist_keyboard teleop_twist_keyboard` (con Docker, dentro del
+contenedor: ver más abajo).
 `conectar.sh` elige solo dónde correr:
 
 - **Tienes ROS 2** (`/opt/ros/<distro>`): lo usa, comprueba que están rosbridge,
@@ -54,10 +56,15 @@ docker exec -it coche-robot-ros2 bash -c 'source /opt/ros/jazzy/setup.bash && cd
 | `/tf` | `tf2_msgs/TFMessage` | `odom → base_link` |
 | `/scan` | `sensor_msgs/LaserScan` | LiDAR a 20 Hz: la señal de "te toca" |
 | `/camara/image_raw/compressed` | `sensor_msgs/CompressedImage` | JPEG 320×180, 10 Hz (`conectar.sh` la republica sin comprimir en `/camara/image_raw`) |
-| `/cmd_vel` | `geometry_msgs/Twist` | **una** orden por cada `/scan`: `linear.x` (m/s) y `angular.z` (rad/s) |
+| `/cmd_vel` | `geometry_msgs/Twist` | `linear.x` (m/s) y `angular.z` (rad/s); en modo síncrono, **una** por cada `/scan` |
 | `/reiniciar_simulacion` | `std_srvs/Trigger` | vuelve a la salida |
 
-La simulación espera a tu orden antes de avanzar 50 ms, así que el resultado no depende de lo rápido que sea tu PC.
+La web tiene dos modos (menú **Esc** → *Sincronía en ROS 2*):
+
+- **Tiempo real** (por defecto): la simulación corre sola y usa la última orden de `/cmd_vel`; si no llega
+  ninguna en 1 s, el coche se para. Sirve para `teleop_twist_keyboard` y cualquier nodo con su propio temporizador.
+- **Síncrono** (como el reto): publica `/scan` y espera **una** orden en `/cmd_vel` antes de avanzar 50 ms, así que
+  el resultado no depende de lo rápido que sea tu PC. Un nodo que no responde a cada `/scan` deja el coche congelado.
 
 ## Archivos
 

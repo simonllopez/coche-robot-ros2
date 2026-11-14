@@ -113,8 +113,10 @@ sleep 2
 cat <<EOF
 
   Listo. En la web del simulador: Esc -> ROS 2  (rosbridge: ws://127.0.0.1:$PUERTO)
-  Nadie conduce todavía: el coche espera a tu nodo (escucha /scan y /odom, y publica UNA orden
-  en /cmd_vel por cada /scan).
+  Nadie conduce todavía: el coche espera órdenes en /cmd_vel.
+  - Tiempo real (por defecto en la web): vale cualquier nodo, también el teclado:
+      ros2 run teleop_twist_keyboard teleop_twist_keyboard
+  - Síncrono (menú Esc de la web, como el reto): tu nodo publica UNA orden por cada /scan.
   Reiniciar: ros2 service call /reiniciar_simulacion std_srvs/srv/Trigger
 EOF
 if [ -f /.dockerenv ]; then

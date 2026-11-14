@@ -12,7 +12,9 @@ y el modelo del coche para RViz.
 wget -qO- https://raw.githubusercontent.com/simonllopez/coche-robot-ros2/main/instalar.sh | bash
 ```
 
-Lo descarga en `~/coche-robot-ros2` y ejecuta `conectar.sh`, que elige solo:
+Lo descarga en `~/coche-robot-ros2` y ejecuta `conectar.sh`. Por defecto **no conduce nadie**: arranca rosbridge,
+el republicador de la cámara y el modelo para RViz, y el coche espera a que tu nodo publique en `/cmd_vel`.
+`conectar.sh` elige solo dónde correr:
 
 - **Tienes ROS 2** (`/opt/ros/<distro>`): lo usa, comprueba que están rosbridge,
   `robot_state_publisher` e `image_transport` (con sus plugins) y, si falta algo, te ofrece instalarlo con `apt`.
@@ -20,21 +22,28 @@ Lo descarga en `~/coche-robot-ros2` y ejecuta `conectar.sh`, que elige solo:
   y lo corre todo dentro. Solo se abre el puerto 9090 en `127.0.0.1`.
 - **Ninguno de los dos**: te dice cómo instalar Docker o ROS 2.
 
-Cuando pone *Listo*, vuelve a la web: si ya estabas en la guía de ROS 2, se conecta sola.
+Cuando pone *Listo*, vuelve a la web: si ya estabas en la guía de ROS 2, se conecta sola. La primera vez,
+el navegador pide permiso para **acceder a apps y servicios de este dispositivo** (red local): acéptalo, es
+lo que deja a la página hablar con rosbridge en `127.0.0.1`. Si lo rechazaste, se vuelve a activar en el
+icono de la izquierda de la barra de direcciones → *Configuración del sitio* → *Acceso a la red local*.
 
 Las siguientes veces:
 
 ```bash
 cd ~/coche-robot-ros2
-./conectar.sh                    # rosbridge + cámara + modelo + piloto_ros2.py
-./conectar.sh mi_piloto.py       # con tu piloto
-./conectar.sh --sin-piloto       # solo el puente; lanzas tu nodo en otra terminal
+./conectar.sh                    # solo el puente: rosbridge + cámara + modelo (tu nodo, en otra terminal)
+./conectar.sh piloto_ros2.py     # además, el piloto de ejemplo
+./conectar.sh mi_piloto.py       # además, tu piloto
 ./conectar.sh --docker           # usar Docker aunque tengas ROS 2
 ROS_DOMAIN_ID=43 ./conectar.sh   # separado de otras cosas de ROS que tengas abiertas
 ```
 
-Ctrl+C lo cierra todo. Con Docker la carpeta se monta dentro del contenedor, así que tus cambios
-en el piloto se usan al volver a lanzar (sin reconstruir la imagen).
+Ctrl+C lo cierra todo. Con Docker, ROS 2 vive dentro del contenedor, así que tu nodo también tiene que correr
+ahí. La carpeta está montada en `/coche` (tus cambios se ven sin reconstruir nada):
+
+```bash
+docker exec -it coche-robot-ros2 bash -c 'source /opt/ros/jazzy/setup.bash && cd /coche && python3 mi_piloto.py'
+```
 
 ## Qué publica y qué espera la web
 

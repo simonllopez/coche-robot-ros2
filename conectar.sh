@@ -1,9 +1,9 @@
 #!/bin/bash
 # Conecta el simulador web del coche robot (modo ROS 2) con ROS 2 de verdad.
 #
-#   ./conectar.sh                    rosbridge + cámara + modelo para RViz + piloto_ros2.py
-#   ./conectar.sh mi_piloto.py       con tu piloto
-#   ./conectar.sh --sin-piloto       solo el puente (lanzas tu nodo aparte)
+#   ./conectar.sh                    solo lo necesario: rosbridge + cámara + modelo para RViz (sin piloto:
+#                                    el coche espera a que tu nodo publique en /cmd_vel)
+#   ./conectar.sh piloto_ros2.py     además, lanza un piloto (el de ejemplo o el tuyo)
 #   ./conectar.sh --docker           todo dentro de Docker (no hace falta tener ROS 2)
 #   ROS_DOMAIN_ID=43 ./conectar.sh   separado de otras cosas de ROS que tengas abiertas
 #
@@ -14,11 +14,11 @@ set -e
 cd "$(dirname "$0")"
 
 USAR_DOCKER=0
-PILOTO=piloto_ros2.py
+PILOTO=""
 for a in "$@"; do
   case "$a" in
     --docker) USAR_DOCKER=1 ;;
-    --sin-piloto) PILOTO="" ;;
+    --sin-piloto) PILOTO="" ;;            # (lo que hace ya sin argumentos; se mantiene por compatibilidad)
     -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) PILOTO="$a" ;;
   esac
@@ -71,11 +71,11 @@ if [ "$USAR_DOCKER" = 1 ]; then
     touch .imagen_creada
   fi
   ARGS=()
-  [ -z "$PILOTO" ] && ARGS+=(--sin-piloto) || ARGS+=("$PILOTO")
+  [ -n "$PILOTO" ] && ARGS+=("$PILOTO")
   echo "rosbridge en ws://127.0.0.1:$PUERTO  (Ctrl+C para salir)"
   # La carpeta se monta en el contenedor: si cambias el piloto, basta con volver a lanzar.
   TTY=(); [ -t 0 ] && TTY=(-it)
-  exec docker run --rm "${TTY[@]}" --init -p "127.0.0.1:$PUERTO:$PUERTO" \
+  exec docker run --rm "${TTY[@]}" --init --name coche-robot-ros2 -p "127.0.0.1:$PUERTO:$PUERTO" \
     -e ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}" -e ROSBRIDGE_DIRECCION=0.0.0.0 -e ROSBRIDGE_PUERTO="$PUERTO" \
     -v "$PWD:/coche" -w /coche "$IMAGEN" ./conectar.sh "${ARGS[@]}"
 fi
@@ -100,7 +100,7 @@ fi
 
 trap 'trap - EXIT; kill 0' EXIT INT TERM      # al salir se cierra todo
 
-echo "ROS 2 $ROS_DISTRO  ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}  piloto: ${PILOTO:-ninguno}"
+echo "ROS 2 $ROS_DISTRO  ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}  piloto: ${PILOTO:-ninguno (lanza tu nodo en otra terminal)}"
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml address:="$DIRECCION" port:="$PUERTO" &
 # El modelo del coche para RViz: el URDF va en un archivo de parámetros (en la línea de órdenes no cabe)
 PARAMS_URDF=$(mktemp --suffix=.yaml)
@@ -113,9 +113,23 @@ sleep 2
 cat <<EOF
 
   Listo. En la web del simulador: Esc -> ROS 2  (rosbridge: ws://127.0.0.1:$PUERTO)
-  RViz:      rviz2 -d rviz/coche.rviz --ros-args -p use_sim_time:=true
+  Nadie conduce todavía: el coche espera a tu nodo (escucha /scan y /odom, y publica UNA orden
+  en /cmd_vel por cada /scan).
   Reiniciar: ros2 service call /reiniciar_simulacion std_srvs/srv/Trigger
+EOF
+if [ -f /.dockerenv ]; then
+  # En Docker, ROS 2 vive dentro del contenedor: el nodo también tiene que ir ahí (la carpeta está en /coche)
+  cat <<'EOF'
+  Tu nodo, en otra terminal (dentro del contenedor; esta carpeta está en /coche):
+    docker exec -it coche-robot-ros2 bash -c 'source /opt/ros/jazzy/setup.bash && cd /coche && python3 piloto_ros2.py'
 
 EOF
+else
+  cat <<EOF
+  Tu nodo, en otra terminal:  source /opt/ros/$ROS_DISTRO/setup.bash && python3 piloto_ros2.py
+  RViz:                       rviz2 -d rviz/coche.rviz --ros-args -p use_sim_time:=true
+
+EOF
+fi
 [ -n "$PILOTO" ] && python3 "$PILOTO" &
 wait

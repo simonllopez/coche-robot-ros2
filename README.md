@@ -36,6 +36,9 @@ cd ~/coche-robot-ros2
 ./conectar.sh                    # solo el puente: rosbridge + cámara + modelo (tu nodo, en otra terminal)
 ./conectar.sh piloto_ros2.py     # además, el piloto de ejemplo
 ./conectar.sh mi_piloto.py       # además, tu piloto
+./conectar.sh --slam             # además, el mapa con slam_toolbox (topic /map)
+./conectar.sh --rviz             # además, RViz (con --slam, también el mapa)
+./conectar.sh --slam --rviz piloto_ros2.py   # todo junto: el piloto da vueltas y ves cómo se hace el mapa
 ./conectar.sh --docker           # usar Docker aunque tengas ROS 2
 ROS_DOMAIN_ID=43 ./conectar.sh   # separado de otras cosas de ROS que tengas abiertas
 ```
@@ -52,6 +55,22 @@ Con el teclado, dentro del contenedor:
 ```bash
 docker exec -it coche-robot-ros2 bash -c 'source /opt/ros/jazzy/setup.bash && ros2 run teleop_twist_keyboard teleop_twist_keyboard'
 ```
+
+## Mapa con slam_toolbox
+
+`--slam` lanza dos cosas:
+
+- `slam/scan_slam.py`: republica `/scan` en `/scan_slam` con los ángulos de −π a π (slam_toolbox no entiende
+  los de 0 a 2π que publica el simulador).
+- slam_toolbox con `slam/slam.yaml`: ajustado al karting (`base_frame: base_link`, `use_sim_time: true`,
+  celdas de 2,5 cm). Con la configuración por defecto de slam_toolbox no funciona: busca `base_footprint` y
+  usa el reloj del PC en vez del simulado (*Failed to compute odom pose*).
+
+Para guardar el mapa: `ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: mapa}}"`.
+RViz con el mapa: `rviz/coche_mapa.rviz` (lo abre `--rviz` si va con `--slam`).
+
+Con Docker, `--rviz` abre la ventana de RViz desde el contenedor en tu escritorio (X11, o XWayland en Wayland;
+hace falta `xauth`).
 
 ## Qué publica y qué espera la web
 
@@ -80,5 +99,6 @@ La web tiene dos modos (menú **Esc** → *Sincronía en ROS 2*):
 | `conectar.sh` | rosbridge, republicador de la cámara, `robot_state_publisher` y el piloto (con tu ROS 2 o con Docker) |
 | `piloto_ros2.py` | piloto con LiDAR y odometría ("extensor de discontinuidades"), ~26 s por vuelta |
 | `ejemplo_piloto.py` | piloto mínimo: la plantilla para empezar el tuyo |
-| `rviz/` | modelo del coche (`coche.urdf`) y vista de RViz: `rviz2 -d rviz/coche.rviz --ros-args -p use_sim_time:=true` |
+| `rviz/` | modelo del coche (`coche.urdf`) y vistas de RViz: `coche.rviz` y `coche_mapa.rviz` (con el mapa) |
+| `slam/` | `slam.yaml` (slam_toolbox ajustado al karting) y `scan_slam.py` (el `/scan` de −π a π) |
 | `Dockerfile` | ROS 2 Jazzy con rosbridge e image_transport (lo usa `conectar.sh`) |

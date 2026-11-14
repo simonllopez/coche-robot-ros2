@@ -4,7 +4,7 @@ FROM ros:jazzy-ros-base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-jazzy-rosbridge-suite ros-jazzy-robot-state-publisher \
-        ros-jazzy-image-transport ros-jazzy-image-transport-plugins python3-numpy \
+        ros-jazzy-image-transport ros-jazzy-image-transport-plugins ros-jazzy-teleop-twist-keyboard python3-numpy \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /coche

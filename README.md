@@ -47,6 +47,12 @@ ahí. La carpeta está montada en `/coche` (tus cambios se ven sin reconstruir n
 docker exec -it coche-robot-ros2 bash -c 'source /opt/ros/jazzy/setup.bash && cd /coche && python3 mi_piloto.py'
 ```
 
+Con el teclado, dentro del contenedor:
+
+```bash
+docker exec -it coche-robot-ros2 bash -c 'source /opt/ros/jazzy/setup.bash && ros2 run teleop_twist_keyboard teleop_twist_keyboard'
+```
+
 ## Qué publica y qué espera la web
 
 | Tema | Tipo | |

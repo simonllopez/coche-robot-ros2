@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!--
+  Modelo sencillo del coche para RViz (solo se ve: la física está en coche.xml).
+  Mismas medidas que coche.xml. base_link está en el suelo, debajo del centro del chasis
+  (es el marco de /odom); el chasis va 6,5 cm más arriba.
+  No define el marco "lidar": ese lo publica el simulador en /tf.
+-->
+<robot name="coche_robot">
+  <material name="placa"><color rgba="0.1 0.35 0.2 1"/></material>
+  <material name="carroceria"><color rgba="0.95 0.45 0.1 1"/></material>
+  <material name="negro"><color rgba="0.08 0.08 0.09 1"/></material>
+  <material name="llanta"><color rgba="0.75 0.75 0.78 1"/></material>
+
+  <link name="base_link"/>
+
+  <link name="chasis">
+    <!-- placa del chasis -->
+    <visual><geometry><box size="0.34 0.14 0.024"/></geometry><material name="placa"/></visual>
+    <!-- carrocería y morro -->
+    <visual><origin xyz="-0.02 0 0.035"/><geometry><box size="0.24 0.13 0.044"/></geometry><material name="carroceria"/></visual>
+    <visual><origin xyz="0.12 0 0.022"/><geometry><box size="0.09 0.12 0.024"/></geometry><material name="carroceria"/></visual>
+    <!-- LiDAR en el morro -->
+    <visual><origin xyz="0.175 0 0"/><geometry><box size="0.024 0.04 0.012"/></geometry><material name="negro"/></visual>
+    <visual><origin xyz="0.195 0 0"/><geometry><cylinder radius="0.025" length="0.028"/></geometry><material name="negro"/></visual>
+  </link>
+  <joint name="base_a_chasis" type="fixed">
+    <parent link="base_link"/><child link="chasis"/><origin xyz="0 0 0.065"/>
+  </joint>
+
+  <!-- Ruedas: radio 4 cm, a ±13 cm (batalla 0,26 m) y ±9,5 cm (vía 0,19 m) -->
+  <link name="rueda_di">
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.04" length="0.03"/></geometry><material name="negro"/></visual>
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.022" length="0.032"/></geometry><material name="llanta"/></visual>
+  </link>
+  <link name="rueda_dd">
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.04" length="0.03"/></geometry><material name="negro"/></visual>
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.022" length="0.032"/></geometry><material name="llanta"/></visual>
+  </link>
+  <link name="rueda_ti">
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.04" length="0.03"/></geometry><material name="negro"/></visual>
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.022" length="0.032"/></geometry><material name="llanta"/></visual>
+  </link>
+  <link name="rueda_td">
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.04" length="0.03"/></geometry><material name="negro"/></visual>
+    <visual><origin rpy="1.5708 0 0"/><geometry><cylinder radius="0.022" length="0.032"/></geometry><material name="llanta"/></visual>
+  </link>
+  <joint name="a_rueda_di" type="fixed"><parent link="base_link"/><child link="rueda_di"/><origin xyz="0.13 0.095 0.04"/></joint>
+  <joint name="a_rueda_dd" type="fixed"><parent link="base_link"/><child link="rueda_dd"/><origin xyz="0.13 -0.095 0.04"/></joint>
+  <joint name="a_rueda_ti" type="fixed"><parent link="base_link"/><child link="rueda_ti"/><origin xyz="-0.13 0.095 0.04"/></joint>
+  <joint name="a_rueda_td" type="fixed"><parent link="base_link"/><child link="rueda_td"/><origin xyz="-0.13 -0.095 0.04"/></joint>
+</robot>
